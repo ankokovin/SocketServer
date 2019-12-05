@@ -10,6 +10,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Collections;
+using System.Threading.Tasks;
+using System.IO;
 
 namespace Sockets
 {
@@ -28,7 +30,6 @@ namespace Sockets
             IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());    // информация об IP-адресах и имени машины, на которой запущено приложение
             IPAddress IP = hostEntry.AddressList[0];                        // IP-адрес, который будет указан при создании сокета
             int Port = 1010;                                                // порт, который будет указан при создании сокета
-
             nicknames = new Dictionary<string, string>();
 
             // определяем IP-адрес машины в формате IPv4
@@ -91,12 +92,32 @@ namespace Sockets
                     rtbMessages.Invoke((MethodInvoker)delegate
                     {
                         if (msg.Replace("\0", "") != "")
+                        {
                             rtbMessages.Text += "\n >> " + msg;             // выводим полученное сообщение на форму
+                            send_all(msg);
+                        }
                     });
                 }
                 Thread.Sleep(500);
             }
         }
+
+        private void send_all(string msg)
+        {
+            Parallel.ForEach(nicknames.Keys, (x => send(msg, x)));
+        }
+
+        private void send(string msg, string ip)
+        {
+            int Port = 1011;                                // номер порта, через который выполняется обмен сообщениями
+            IPAddress IP = IPAddress.Parse(ip);      // разбор IP-адреса сервера, указанного в поле tbIP
+            TcpClient Client = new TcpClient();
+            Client.Connect(IP, Port);                       // подключение к клиентскому сокету
+            byte[] buff = Encoding.Unicode.GetBytes(msg);   // выполняем преобразование сообщения (вместе с идентификатором машины) в последовательность байт
+            Stream stm = Client.GetStream();                                                    // получаем файловый поток клиентского сокета
+            stm.Write(buff, 0, buff.Length);                                                    // выполняем запись последовательности байт
+        }
+
 
         private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
