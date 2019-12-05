@@ -19,7 +19,7 @@ namespace Sockets
         private TcpListener Listener;                   // сокет сервера
         private List<Thread> Threads = new List<Thread>();      // список потоков приложения (кроме родительского)
         private bool _continue = true;                          // флаг, указывающий продолжается ли работа с сокетами
-
+        private Dictionary<string, string> nicknames;
         // конструктор формы
         public frmMain()
         {
@@ -28,6 +28,8 @@ namespace Sockets
             IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());    // информация об IP-адресах и имени машины, на которой запущено приложение
             IPAddress IP = hostEntry.AddressList[0];                        // IP-адрес, который будет указан при создании сокета
             int Port = 1010;                                                // порт, который будет указан при создании сокета
+
+            nicknames = new Dictionary<string, string>();
 
             // определяем IP-адрес машины в формате IPv4
             foreach (IPAddress address in hostEntry.AddressList)
@@ -73,12 +75,25 @@ namespace Sockets
                 byte[] buff = new byte[1024];                           // буфер прочитанных из сокета байтов
                 ((Socket)ClientSock).Receive(buff);                     // получаем последовательность байтов из сокета в буфер buff
                 msg = System.Text.Encoding.Unicode.GetString(buff);     // выполняем преобразование байтов в последовательность символов
-                
-                rtbMessages.Invoke((MethodInvoker)delegate
+                if (msg.Contains(" <<"))
                 {
-                    if (msg.Replace("\0","") != "")
-                        rtbMessages.Text += "\n >> " + msg;             // выводим полученное сообщение на форму
-                });
+                    int idx = msg.IndexOf(" <<");
+                    string host = msg.Substring(0, idx);
+                    string nickname = msg.Substring(idx + 4).Replace("\0", "");
+                    nicknames[host] = nickname;
+                }
+                else if (msg.Contains(" >>"))
+                {
+                    int idx = msg.IndexOf(" >>");
+                    string host = msg.Substring(0, idx);
+                    string nickname = nicknames[host];
+                    msg = nickname + msg.Substring(idx);
+                    rtbMessages.Invoke((MethodInvoker)delegate
+                    {
+                        if (msg.Replace("\0", "") != "")
+                            rtbMessages.Text += "\n >> " + msg;             // выводим полученное сообщение на форму
+                    });
+                }
                 Thread.Sleep(500);
             }
         }
