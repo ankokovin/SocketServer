@@ -18,17 +18,22 @@ namespace Sockets
     public partial class frmMain : Form
     {
         private Socket ClientSock;                      // клиентский сокет
+        private Socket UpdSock;
+        private UdpClient udpClient;
         private TcpListener Listener;                   // сокет сервера
         private List<Thread> Threads = new List<Thread>();      // список потоков приложения (кроме родительского)
         private bool _continue = true;                          // флаг, указывающий продолжается ли работа с сокетами
         private Dictionary<string, string> nicknames;
+        IPAddress IP;
+        private int serverUdpPort = 5000;
+        private int clientUdpPort = 5001;
         // конструктор формы
         public frmMain()
         {
             InitializeComponent();
 
             IPHostEntry hostEntry = Dns.GetHostEntry(Dns.GetHostName());    // информация об IP-адресах и имени машины, на которой запущено приложение
-            IPAddress IP = hostEntry.AddressList[0];                        // IP-адрес, который будет указан при создании сокета
+            IP = hostEntry.AddressList[0];                        // IP-адрес, который будет указан при создании сокета
             int Port = 1010;                                                // порт, который будет указан при создании сокета
             nicknames = new Dictionary<string, string>();
 
@@ -46,11 +51,37 @@ namespace Sockets
             // создаем серверный сокет (Listener для приема заявок от клиентских сокетов)
             Listener = new TcpListener(IP, Port);
             Listener.Start();
-
+            udpClient = new UdpClient(serverUdpPort);
             // создаем и запускаем поток, выполняющий обслуживание серверного сокета
             Threads.Clear();
             Threads.Add(new Thread(ReceiveMessage));
             Threads[Threads.Count-1].Start();
+
+            Threads.Add(new Thread(ReceiveUdp));
+            Threads[Threads.Count - 1].Start();
+
+        }
+
+        private void ReceiveUdp()
+        {
+            string msg = "";
+            IPEndPoint groupEP = new IPEndPoint(IPAddress.Any, serverUdpPort);
+            while (_continue)
+            {
+                byte[] bytes = udpClient.Receive(ref groupEP);
+                msg = System.Text.Encoding.Unicode.GetString(bytes);     // выполняем преобразование байтов в последовательность символов
+                if (msg != "")
+                    RespondUdp(msg);
+            }
+        }
+
+        private void RespondUdp(string _ip)
+        {
+            Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            IPAddress broadcast = IPAddress.Parse(_ip);
+            byte[] sendbuf = Encoding.Unicode.GetBytes(IP.ToString());
+            IPEndPoint ep = new IPEndPoint(broadcast, clientUdpPort);
+            s.SendTo(sendbuf, ep);
         }
 
         // работа с клиентскими сокетами
