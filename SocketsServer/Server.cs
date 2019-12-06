@@ -65,9 +65,9 @@ namespace Sockets
         private void ReceiveUdp()
         {
             string msg = "";
-            IPEndPoint groupEP = new IPEndPoint(IPAddress.Any, serverUdpPort);
             while (_continue)
             {
+                IPEndPoint groupEP = new IPEndPoint(IPAddress.Any, serverUdpPort);
                 byte[] bytes = udpClient.Receive(ref groupEP);
                 msg = System.Text.Encoding.Unicode.GetString(bytes);     // выполняем преобразование байтов в последовательность символов
                 if (msg != "")
